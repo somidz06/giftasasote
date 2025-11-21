@@ -3,12 +3,12 @@ import {
   Heart, Gift, Music, Image as ImageIcon, Type, Calendar, Smile,
   Trash2, ArrowUp, ArrowDown, Eye, Plus, X, Lock, Unlock,
   Sparkles, MessageCircle, PlayCircle, Hash, MapPin, Clock,
-  Wand2, Loader2, RefreshCw, Video, Timer, HelpCircle, Palette,
+  Wand2, Loader2, RefreshCcw, Video, Timer, HelpCircle, Palette,
   Layout, AlignLeft, AlignCenter, AlignRight, Box, MoreHorizontal,
   ListChecks, Ticket, Grid, Mail, Sun, Gamepad2, Maximize, Minimize,
   Copy, Download, Upload, Share, Mic, Square, Check, Smartphone,
   Tablet, Monitor, CheckSquare, SquareIcon, FileText, Film, Globe,
-  QrCode, Printer, CheckCircle, Edit, Dice,
+  QrCode, Printer, CheckCircle, Edit, Dice1, ChevronRight, RefreshCw  // ← Changed Dice to Dice1
 } from 'lucide-react';
 
 // --- Gemini API Setup ---
@@ -239,7 +239,7 @@ const BulkOperations = ({ selectedBlocks, onSelectAll, onDuplicateSelected, onDe
 const ExportModal = ({ isOpen, onClose, giftName, exportConfig }) => {
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState('pdf');
-  
+
   const exportOptions = [
     {
       id: 'pdf',
@@ -640,36 +640,55 @@ const BlockWrapper = ({ children, style = {}, theme, isEditing, onStyleUpdate, i
   );
 };
 
-const SpinWheelBlock = ({ content, theme, isEditing, onUpdate }) => {
+// --- Utility: Color Generation ---
+const getSegmentColor = (index, total) => {
+  const hue = (index * 360) / total;
+  return `hsl(${hue}, 80%, 60%)`;
+};
+
+// --- Utility: Geometry for SVG Arcs ---
+const getCoordinatesForPercent = (percent) => {
+  const x = Math.cos(2 * Math.PI * percent);
+  const y = Math.sin(2 * Math.PI * percent);
+  return [x, y];
+};
+
+const SpinWheelBlock = ({ content, theme = { primary: '#6366f1' }, isEditing, onUpdate }) => {
+  // Use content.options if available, otherwise default to a starter list
+  const options = content?.options || ['Pizza', 'Burgers', 'Sushi', 'Tacos'];
+
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState(null);
   const [rotation, setRotation] = useState(0);
-  const wheelRef = useRef(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
-  const options = content.options || ['Option 1', 'Option 2', 'Option 3', 'Option 4'];
-
+  // --- Wheel Logic ---
   const spinWheel = () => {
     if (spinning) return;
 
     setSpinning(true);
     setResult(null);
+    setShowConfetti(false);
 
-    const spins = 5 + Math.random() * 5; // 5-10 spins
-    const degrees = 360 * spins + Math.random() * 360;
-    const finalRotation = rotation + degrees;
+    const winningIndex = Math.floor(Math.random() * options.length);
+    const segmentAngle = 360 / options.length;
 
-    setRotation(finalRotation);
+    // Calculate rotation to land with the winner at the top (-90deg visual)
+    const indexOffset = (winningIndex * segmentAngle) + (segmentAngle / 2);
+    const extraSpins = 360 * (5 + Math.floor(Math.random() * 5)); // 5-10 spins
+    const targetRotation = rotation + extraSpins + (360 - (rotation % 360)) + (360 - indexOffset);
+
+    setRotation(targetRotation);
 
     setTimeout(() => {
-      const segmentAngle = 360 / options.length;
-      const normalizedAngle = finalRotation % 360;
-      const winningIndex = Math.floor((360 - normalizedAngle) / segmentAngle) % options.length;
-
       setResult(options[winningIndex]);
       setSpinning(false);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
     }, 3000);
   };
 
+  // --- CRUD Operations (Connected to onUpdate) ---
   const addOption = () => {
     onUpdate({
       ...content,
@@ -684,112 +703,164 @@ const SpinWheelBlock = ({ content, theme, isEditing, onUpdate }) => {
   };
 
   const removeOption = (index) => {
+    if (options.length <= 2) return;
     const newOptions = options.filter((_, i) => i !== index);
     onUpdate({ ...content, options: newOptions });
   };
 
+  // --- SVG Path Helper ---
+  const makeSlicePath = (startPercent, endPercent) => {
+    const [startX, startY] = getCoordinatesForPercent(startPercent);
+    const [endX, endY] = getCoordinatesForPercent(endPercent);
+    const largeArcFlag = endPercent - startPercent > 0.5 ? 1 : 0;
+    return `M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
+  };
+
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-xl p-6 shadow-lg text-center">
-        <div className="flex items-center gap-2 mb-4 text-slate-400 text-xs font-bold uppercase tracking-widest">
-          <RefreshCw size={14} /> Spin the Wheel
+    <div className="w-full max-w-md mx-auto font-sans">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-100">
+
+        {/* Header */}
+        <div className="bg-slate-50 p-3 border-b border-slate-100 flex justify-center items-center">
+          <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest">
+            <RefreshCw size={14} className={spinning ? "animate-spin" : ""} />
+            Spin the Wheel
+          </div>
         </div>
 
-        {isEditing ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              {options.map((option, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <div
-                    className="w-4 h-4 rounded-full border-2"
-                    style={{
-                      borderColor: theme.primary,
-                      backgroundColor: `hsl(${(index * 360) / options.length}, 70%, 60%)`
-                    }}
-                  />
-                  <input
-                    value={option}
-                    onChange={(e) => updateOption(index, e.target.value)}
-                    className="flex-1 border p-2 rounded text-sm"
-                    placeholder={`Option ${index + 1}`}
-                  />
-                  {options.length > 2 && (
+        <div className="p-6">
+          {isEditing ? (
+            // --- Edit Mode (Restored Logic) ---
+            <div className="space-y-4">
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                {options.map((option, index) => (
+                  <div key={index} className="flex gap-3 items-center">
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0 border border-slate-200"
+                      style={{ backgroundColor: getSegmentColor(index, options.length) }}
+                    />
+                    <input
+                      value={option}
+                      onChange={(e) => updateOption(index, e.target.value)}
+                      className="flex-1 border border-slate-200 p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder={`Option ${index + 1}`}
+                    />
                     <button
                       onClick={() => removeOption(index)}
-                      className="p-1 text-red-400 hover:text-red-600"
+                      disabled={options.length <= 2}
+                      className="p-1 text-slate-300 hover:text-red-500 disabled:opacity-30"
                     >
                       <Trash2 size={14} />
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={addOption}
-              className="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
-            >
-              + Add Option
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Wheel Container */}
-            <div className="relative mx-auto w-64 h-64">
-              <div
-                ref={wheelRef}
-                className="w-full h-full rounded-full border-4 border-white shadow-xl transition-transform duration-3000 ease-out"
-                style={{
-                  transform: `rotate(${rotation}deg)`,
-                  background: `conic-gradient(${options.map((_, i) =>
-                    `hsl(${(i * 360) / options.length}, 70%, 60%) ${(i / options.length) * 100}% ${((i + 1) / options.length) * 100}%`
-                  ).join(', ')})`
-                }}
-              />
-
-              {/* Wheel Pointer */}
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-8 h-8">
-                <div className="w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-red-500" />
+                  </div>
+                ))}
               </div>
-
-              {/* Center Circle */}
-              <div className="absolute inset-0 m-auto w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center">
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                  style={{ backgroundColor: theme.primary }}
-                >
-                  SPIN
-                </div>
-              </div>
+              <button
+                onClick={addOption}
+                className="w-full py-2 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-indigo-300 hover:text-indigo-600 text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <Plus size={14} /> Add Option
+              </button>
             </div>
+          ) : (
+            // --- Play Mode (Visual Upgrade) ---
+            <div className="flex flex-col items-center relative">
 
-            {/* Spin Button */}
-            <button
-              onClick={spinWheel}
-              disabled={spinning}
-              className={`px-8 py-3 rounded-full font-bold text-white transition-all ${spinning ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
-                }`}
-              style={{ backgroundColor: theme.primary }}
-            >
-              {spinning ? 'Spinning...' : 'Spin the Wheel!'}
-            </button>
+              {/* Confetti (CSS Only) */}
+              {showConfetti && (
+                <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
+                  {[...Array(15)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="absolute w-2 h-2 rounded-full animate-ping"
+                      style={{
+                        top: '50%', left: '50%',
+                        backgroundColor: ['#FFD700', '#FF6B6B', '#4ECDC4'][i % 3],
+                        transform: `translate(${Math.random() * 200 - 100}px, ${Math.random() * 200 - 100}px)`,
+                        animationDuration: '1s',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
 
-            {/* Result Display */}
-            {result && (
-              <div className="animate-in fade-in slide-in-from-bottom-4">
-                <div className="text-lg font-semibold text-slate-600">Landed on:</div>
+              {/* Wheel Container */}
+              <div className="relative w-64 h-64 mb-6">
+                {/* Pointer */}
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                  <div className="w-6 h-8 bg-slate-800 rounded-b-full shadow-lg border-2 border-white" />
+                </div>
+
+                {/* SVG Wheel */}
                 <div
-                  className="text-2xl font-bold p-4 rounded-lg mt-2"
+                  className="w-full h-full"
                   style={{
-                    backgroundColor: `${theme.primary}20`,
-                    color: theme.primary
+                    transform: `rotate(${rotation}deg)`,
+                    transition: 'transform 3s cubic-bezier(0.2, 0.8, 0.2, 1)'
                   }}
                 >
-                  {result}
+                  <svg viewBox="-1 -1 2 2" className="w-full h-full transform -rotate-90">
+                    {options.map((option, index) => {
+                      const start = index / options.length;
+                      const end = (index + 1) / options.length;
+                      const mid = (start + end) / 2;
+
+                      return (
+                        <g key={index}>
+                          <path
+                            d={makeSlicePath(start, end)}
+                            fill={getSegmentColor(index, options.length)}
+                            stroke="white"
+                            strokeWidth="0.02"
+                          />
+                          <text
+                            x="0" y="0"
+                            fontSize="0.11"
+                            fontWeight="bold"
+                            fill="white"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            transform={`rotate(${mid * 360}) translate(0.65, 0) rotate(90)`}
+                            style={{ pointerEvents: 'none', textShadow: '0px 1px 2px rgba(0,0,0,0.3)' }}
+                          >
+                            {option.length > 14 ? option.substring(0, 12) + '..' : option}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+
+                {/* Center Hub */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center z-10 border-4 border-slate-50">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: theme.primary }}>
+                    <Sparkles size={18} />
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Controls */}
+              <div className="h-20 w-full flex flex-col items-center justify-center">
+                {!spinning && result ? (
+                  <div className="animate-in fade-in zoom-in duration-300 text-center">
+                    <div className="text-xs text-slate-400 font-bold uppercase tracking-widest">Winner</div>
+                    <div className="text-2xl font-black text-slate-800 my-1">{result}</div>
+                    <button onClick={spinWheel} className="text-xs text-indigo-500 hover:underline">Spin Again</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={spinWheel}
+                    disabled={spinning}
+                    className={`px-8 py-3 rounded-full font-bold text-white shadow-lg transition-all ${spinning ? 'opacity-70 scale-95' : 'hover:-translate-y-1 hover:shadow-xl'}`}
+                    style={{ backgroundColor: theme.primary }}
+                  >
+                    {spinning ? 'Spinning...' : 'Spin!'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1377,17 +1448,23 @@ const VoiceMessageBlock = ({ content, theme, isEditing, onUpdate }) => {
 // --- Missing Block Components ---
 
 const SectionBlock = ({ content, isEditing, onUpdate, style }) => (
-  <div className={`flex items-center gap-4 w-full ${getFlexAlign(style?.align)}`}>
+  <div className={`flex items-center gap-2 md:gap-4 w-full max-w-full px-2 ${getFlexAlign(style?.align)}`}>
     <div className={`h-px flex-1 ${style?.align === 'left' ? 'hidden' : ''} bg-current opacity-30`}></div>
     {isEditing ? (
-      <input value={content.title} onChange={(e) => onUpdate({ ...content, title: e.target.value })} className="text-2xl font-bold bg-transparent text-center focus:outline-none min-w-[200px]" placeholder="Section Title" />
+      <input 
+        value={content.title} 
+        onChange={(e) => onUpdate({ ...content, title: e.target.value })} 
+        className="text-lg md:text-2xl font-bold bg-transparent text-center focus:outline-none min-w-0 flex-1 max-w-full truncate px-2"
+        placeholder="Section Title" 
+      />
     ) : (
-      <h2 className="text-3xl font-bold uppercase tracking-widest whitespace-nowrap">{content.title}</h2>
+      <h2 className="text-lg md:text-3xl font-bold uppercase tracking-widest whitespace-nowrap truncate max-w-full px-2">
+        {content.title}
+      </h2>
     )}
     <div className={`h-px flex-1 ${style?.align === 'right' ? 'hidden' : ''} bg-current opacity-30`}></div>
   </div>
 );
-
 const NoteBlock = ({ content, isEditing, onUpdate, style }) => {
   const [showAI, setShowAI] = useState(false);
   return (
@@ -1834,50 +1911,65 @@ const DailyWisdomBlock = ({ content, theme, isEditing, onUpdate }) => {
   const currentQuote = content.quotes?.[dayIndex] || "Today is a beautiful day!";
 
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-xl p-6 shadow-lg border-t-4" style={{ borderColor: theme.primary }}>
+    <div className="w-full px-2">
+      <div className="bg-white rounded-xl p-4 shadow-lg border-t-4 w-full max-w-full" style={{ borderColor: theme.primary }}>
         <div className="flex items-center gap-2 mb-4 text-slate-400 text-xs font-bold uppercase tracking-widest">
           <Sun size={14} /> Daily Wisdom
         </div>
 
         {isEditing ? (
-          <div className="space-y-2 relative">
-            <TutorialTooltip content="Generate with AI">
-              <button onClick={() => setShowAI(!showAI)} className="absolute -top-10 right-0 bg-indigo-100 text-indigo-600 text-xs px-2 py-1 rounded flex items-center gap-1">
-                <Sparkles size={12} /> AI
-              </button>
-            </TutorialTooltip>
+          <div className="space-y-3 relative w-full">
+            <div className="flex justify-end">
+              <TutorialTooltip content="Generate with AI">
+                <button 
+                  onClick={() => setShowAI(!showAI)} 
+                  className="bg-indigo-100 text-indigo-600 text-xs px-2 py-1 rounded flex items-center gap-1"
+                >
+                  <Sparkles size={12} /> AI
+                </button>
+              </TutorialTooltip>
+            </div>
+            
             {showAI && (
-              <AIAssistantPanel
-                type="wisdom"
-                onGenerate={t => {
-                  onUpdate({ ...content, quotes: [...(content.quotes || []), t] });
-                  setShowAI(false);
-                }}
-                onClose={() => setShowAI(false)}
-              />
+              <div className="relative w-full">
+                <AIAssistantPanel
+                  type="wisdom"
+                  onGenerate={t => {
+                    onUpdate({ ...content, quotes: [...(content.quotes || []), t] });
+                    setShowAI(false);
+                  }}
+                  onClose={() => setShowAI(false)}
+                />
+              </div>
             )}
 
-            <div className="max-h-32 overflow-y-auto space-y-1 border rounded p-2 text-xs">
+            <div className="max-h-32 overflow-y-auto space-y-2 border rounded p-2 text-xs w-full">
               {content.quotes?.map((q, i) => (
-                <div key={i} className="flex gap-2 items-center bg-slate-50 p-1 rounded">
-                  <span className="truncate flex-1">{q}</span>
-                  <button onClick={() => {
-                    const n = [...content.quotes]; n.splice(i, 1); onUpdate({ ...content, quotes: n });
-                  }}>
+                <div key={i} className="flex gap-2 items-center bg-slate-50 p-2 rounded w-full">
+                  <span className="flex-1 break-words text-xs">{q}</span>
+                  <button 
+                    onClick={() => {
+                      const n = [...content.quotes]; 
+                      n.splice(i, 1); 
+                      onUpdate({ ...content, quotes: n });
+                    }}
+                    className="flex-shrink-0"
+                  >
                     <Trash2 size={12} className="text-red-400 hover:text-red-600" />
                   </button>
                 </div>
               ))}
               {(!content.quotes || content.quotes.length === 0) && (
-                <div className="text-slate-400 italic text-center py-2">No quotes added yet</div>
+                <div className="text-slate-400 italic text-center py-2 text-xs">No quotes added yet</div>
               )}
             </div>
+            
             <textarea
-              className="w-full border p-2 rounded text-sm"
+              className="w-full border p-3 rounded text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200"
               placeholder="Add a new quote and press Enter..."
+              rows={3}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.target.value) {
+                if (e.key === 'Enter' && !e.shiftKey && e.target.value) {
                   onUpdate({ ...content, quotes: [...(content.quotes || []), e.target.value] });
                   e.target.value = '';
                   e.preventDefault();
@@ -1886,9 +1978,11 @@ const DailyWisdomBlock = ({ content, theme, isEditing, onUpdate }) => {
             />
           </div>
         ) : (
-          <div className="text-center">
-            <p className="text-xl font-serif italic text-slate-700 mb-2">"{currentQuote}"</p>
-            <p className="text-xs text-slate-400">Come back tomorrow for a new message!</p>
+          <div className="text-center w-full">
+            <p className="text-lg font-serif italic text-slate-700 mb-3 break-words leading-relaxed px-1">
+              "{currentQuote}"
+            </p>
+            <p className="text-xs text-slate-500">Come back tomorrow for a new message!</p>
           </div>
         )}
       </div>
@@ -1929,14 +2023,23 @@ const HeroBlock = ({ content, isEditing, onUpdate, style }) => (
 // --- Main Builder Layout ---
 
 export default function App() {
-  const [mode, setMode] = useState('wizard');
   const [activeTab, setActiveTab] = useState('modules');
-  const [config, setConfig] = useLocalStorage('gift-builder-config', null);
   const [selectedBlocks, setSelectedBlocks] = useState([]);
   const [previewSize, setPreviewSize] = useState('desktop');
   const [showExportModal, setShowExportModal] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mode, setMode] = useState('wizard');
+  const [config, setConfig] = useLocalStorage('gift-builder-config', {
+    theme: 'modern',
+    customTheme: DEFAULT_THEMES.modern,
+    blocks: []
+  });
+
+
+
+
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -1969,7 +2072,7 @@ export default function App() {
 
   const exportConfig = () => {
     const dataStr = JSON.stringify(config, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
     const exportFileDefaultName = 'gift-config.json';
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -2145,28 +2248,64 @@ export default function App() {
   };
 
   // Block library for sidebar
-  const blockLibrary = [
-    { id: 'hero', icon: Type, label: 'Heading', category: 'basic' },
-    { id: 'section', icon: Hash, label: 'Divider', category: 'basic' },
-    { id: 'note', icon: MessageCircle, label: 'Note', category: 'content' },
-    { id: 'gallery', icon: ImageIcon, label: 'Gallery', category: 'media' },
-    { id: 'timeline', icon: Clock, label: 'Timeline', category: 'content' },
-    { id: 'music', icon: Music, label: 'Music', category: 'media' },
-    { id: 'video', icon: Video, label: 'Video', category: 'media' },
-    { id: 'map', icon: MapPin, label: 'Map', category: 'content' },
-    { id: 'countdown', icon: Timer, label: 'Timer', category: 'interactive' },
-    { id: 'game', icon: Gamepad2, label: 'Game', category: 'interactive' },
-    { id: 'wisdom', icon: Sun, label: 'Daily', category: 'content' },
-    { id: 'openwhen', icon: Mail, label: 'Open When', category: 'interactive' },
-    { id: 'quiz', icon: HelpCircle, label: 'Quiz', category: 'interactive' },
-    { id: 'poll', icon: ListChecks, label: 'Poll', category: 'interactive' },
-    { id: 'secret', icon: Lock, label: 'Secret', category: 'interactive' },
-    { id: 'coupon', icon: Ticket, label: 'Coupon', category: 'content' },
-    { id: 'voice', icon: Mic, label: 'Voice Message', category: 'media' },
-    { id: 'spinwheel', icon: RefreshCw, label: 'Spin Wheel', category: 'interactive' },
-    { id: 'drawing', icon: Edit, label: 'Drawing', category: 'interactive' },
-    { id: 'dice', icon: Gamepad2, label: 'Dice Roller', category: 'interactive' },
-
+  // Updated block library with categories
+  // Updated block library with categories and fixed icons
+  const blockCategories = [
+    {
+      id: 'basic',
+      name: 'Basic Elements',
+      icon: Type,
+      blocks: [
+        { id: 'hero', icon: Type, label: 'Heading' },
+        { id: 'section', icon: Hash, label: 'Divider' },
+        { id: 'note', icon: MessageCircle, label: 'Note' },
+      ]
+    },
+    {
+      id: 'content',
+      name: 'Content',
+      icon: FileText,
+      blocks: [
+        { id: 'timeline', icon: Clock, label: 'Timeline' },
+        { id: 'wisdom', icon: Sun, label: 'Daily Wisdom' },
+        { id: 'coupon', icon: Ticket, label: 'Coupon' },
+        { id: 'openwhen', icon: Mail, label: 'Open When' },
+      ]
+    },
+    {
+      id: 'media',
+      name: 'Media',
+      icon: ImageIcon,
+      blocks: [
+        { id: 'gallery', icon: ImageIcon, label: 'Gallery' },
+        { id: 'music', icon: Music, label: 'Music' },
+        { id: 'video', icon: Video, label: 'Video' },
+        { id: 'voice', icon: Mic, label: 'Voice Message' },
+      ]
+    },
+    {
+      id: 'interactive',
+      name: 'Interactive',
+      icon: Gamepad2,
+      blocks: [
+        { id: 'quiz', icon: HelpCircle, label: 'Quiz' },
+        { id: 'poll', icon: ListChecks, label: 'Poll' },
+        { id: 'game', icon: Gamepad2, label: 'Memory Game' },
+        { id: 'secret', icon: Lock, label: 'Secret' },
+        { id: 'countdown', icon: Timer, label: 'Countdown' },
+        { id: 'spinwheel', icon: RefreshCw, label: 'Spin Wheel' },
+        { id: 'drawing', icon: Edit, label: 'Drawing' },
+        { id: 'dice', icon: Dice1, label: 'Dice Roller' }, // ← Using Dice1 instead of Dice
+      ]
+    },
+    {
+      id: 'special',
+      name: 'Special',
+      icon: Sparkles,
+      blocks: [
+        { id: 'map', icon: MapPin, label: 'Map' },
+      ]
+    }
   ];
 
   if (mode === 'wizard') {
@@ -2263,22 +2402,292 @@ export default function App() {
   }
 
   // Mobile Sidebar Component
-  const MobileSidebar = ({ isOpen, onClose, children }) => {
-    if (!isOpen) return null;
+  // Enhanced Mobile Sidebar Component
+  // Enhanced Mobile Sidebar Component
+const MobileSidebar = ({ isOpen, onClose }) => {
+  const [mobileActiveTab, setMobileActiveTab] = useState('modules');
+  const [selectedCategory, setSelectedCategory] = useState('basic');
 
-    return (
-      <>
-        <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-        <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 max-h-[80vh] overflow-auto animate-in slide-in-from-bottom duration-300">
-          <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-            <h3 className="font-bold text-slate-800">Add Blocks</h3>
-            <button onClick={onClose}><X size={20} /></button>
+  if (!isOpen) return null;
+
+  const renderMobileContent = () => {
+    switch (mobileActiveTab) {
+      case 'modules':
+        return (
+          <div className="flex-1 overflow-y-auto">
+            {/* Category Tabs */}
+            <div className="flex overflow-x-auto border-b bg-slate-50">
+              {blockCategories.map(category => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`flex-shrink-0 px-4 py-3 text-xs font-medium border-b-2 transition-colors ${
+                    selectedCategory === category.id
+                      ? 'border-indigo-600 text-indigo-600 bg-white'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <category.icon size={14} />
+                    <span>{category.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Blocks Grid */}
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-3">
+                {blockCategories
+                  .find(cat => cat.id === selectedCategory)
+                  ?.blocks.map(block => (
+                    <button
+                      key={block.id}
+                      onClick={() => {
+                        addBlock(block.id);
+                        onClose();
+                      }}
+                      className="flex flex-col items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <block.icon size={20} className="text-slate-600" />
+                      <span className="text-xs font-medium text-center leading-tight">
+                        {block.label}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>
           </div>
-          {children}
-        </div>
-      </>
-    );
+        );
+
+      case 'theme':
+        return (
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-6">
+              <div>
+                <label className="text-sm font-bold text-slate-800 block mb-3">Theme Presets</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(DEFAULT_THEMES).map(([k, t]) => (
+                    <button
+                      key={k}
+                      onClick={() => {
+                        setConfig(p => ({ ...p, theme: k }));
+                        onClose();
+                      }}
+                      className={`p-3 text-sm rounded-lg border-2 text-left transition-all ${
+                        config.theme === k 
+                          ? 'border-indigo-600 bg-indigo-50 scale-95' 
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full mb-2 border border-slate-200" style={{ background: t.primary }}></div>
+                      <div className="font-medium">{t.name}</div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setConfig(p => ({ ...p, theme: 'custom' }))}
+                    className={`p-3 text-sm rounded-lg border-2 text-left transition-all ${
+                      config.theme === 'custom' 
+                        ? 'border-indigo-600 bg-indigo-50 scale-95' 
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="w-6 h-6 rounded-full mb-2 bg-gradient-to-tr from-blue-400 to-purple-500 border border-slate-200"></div>
+                    <div className="font-medium">Custom Theme</div>
+                  </button>
+                </div>
+              </div>
+
+              {config.theme === 'custom' && (
+                <div className="space-y-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <label className="text-sm font-bold text-slate-800">Custom Colors</label>
+                  
+                  <div>
+                    <label className="text-xs text-slate-600 block mb-2">Primary Color</label>
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="color"
+                        value={config.customTheme.primary}
+                        onChange={e => setConfig(p => ({ 
+                          ...p, 
+                          customTheme: { 
+                            ...p.customTheme, 
+                            primary: e.target.value,
+                            secondary: e.target.value + '40'
+                          } 
+                        }))}
+                        className="w-12 h-12 rounded cursor-pointer border border-slate-300"
+                      />
+                      <span className="text-sm font-mono bg-white px-2 py-1 rounded border">
+                        {config.customTheme.primary}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-600 block mb-2">Background</label>
+                    <input
+                      type="color"
+                      value={config.customTheme.bg}
+                      onChange={e => setConfig(p => ({ 
+                        ...p, 
+                        customTheme: { ...p.customTheme, bg: e.target.value } 
+                      }))}
+                      className="w-full h-12 rounded cursor-pointer border border-slate-300"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-600 block mb-2">Font Style</label>
+                    <select
+                      value={config.customTheme.font}
+                      onChange={e => setConfig(p => ({ 
+                        ...p, 
+                        customTheme: { ...p.customTheme, font: e.target.value } 
+                      }))}
+                      className="w-full p-3 rounded border border-slate-300 text-sm"
+                    >
+                      {Object.entries(FONTS).map(([k, v]) => 
+                        <option key={k} value={k}>{v}</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'tools':
+        return (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <button
+              onClick={() => {
+                setShowExportModal(true);
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 text-left"
+            >
+              <Download size={20} />
+              <div>
+                <div className="font-medium">Export Gift</div>
+                <div className="text-sm text-slate-500">Save or share your creation</div>
+              </div>
+            </button>
+
+            <label className="block w-full flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 cursor-pointer">
+              <Upload size={20} />
+              <div>
+                <div className="font-medium">Import Configuration</div>
+                <div className="text-sm text-slate-500">Load a previous gift</div>
+              </div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => {
+                  importConfig(e);
+                  onClose();
+                }}
+                className="hidden"
+              />
+            </label>
+
+            {selectedBlocks.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-blue-800 mb-3">
+                  {selectedBlocks.length} block{selectedBlocks.length !== 1 ? 's' : ''} selected
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      duplicateSelectedBlocks();
+                      onClose();
+                    }}
+                    className="bg-blue-500 text-white py-2 px-3 rounded text-sm hover:bg-blue-600"
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    onClick={() => {
+                      deleteSelectedBlocks();
+                      onClose();
+                    }}
+                    className="bg-red-500 text-white py-2 px-3 rounded text-sm hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to clear all blocks?')) {
+                  setConfig(prev => ({ ...prev, blocks: [] }));
+                  setSelectedBlocks([]);
+                }
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 p-4 border border-red-200 rounded-lg hover:bg-red-50 text-red-700 text-left"
+            >
+              <Trash2 size={20} />
+              <div>
+                <div className="font-medium">Clear All Blocks</div>
+                <div className="text-sm text-red-500">Start fresh</div>
+              </div>
+            </button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 max-h-[85vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800">
+            {mobileActiveTab === 'modules' ? 'Add Blocks' :
+             mobileActiveTab === 'theme' ? 'Theme Settings' :
+             mobileActiveTab === 'tools' ? 'Tools' : 'Menu'}
+          </h3>
+          <button onClick={onClose} className="p-1">
+            <X size={24} className="text-slate-600" />
+          </button>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex border-b bg-slate-50">
+          {[
+            { id: 'modules', label: 'Blocks', icon: Plus },
+            { id: 'theme', label: 'Theme', icon: Palette },
+            { id: 'tools', label: 'Tools', icon: MoreHorizontal },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setMobileActiveTab(tab.id)}
+              className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium ${
+                mobileActiveTab === tab.id
+                  ? 'bg-white text-indigo-600 border-b-2 border-indigo-600'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        {renderMobileContent()}
+      </div>
+    </>
+  );
+};
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
@@ -2309,20 +2718,31 @@ export default function App() {
 
         <div className="flex-1 overflow-y-auto">
           {activeTab === 'modules' && (
-            <div className="grid grid-cols-2 gap-3 p-4">
-              {blockLibrary.map(m => (
-                <TutorialTooltip key={m.id} content={m.label} position="top">
-                  <button
-                    onClick={() => addBlock(m.id)}
-                    className="w-full flex flex-col items-center justify-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all hover:border-indigo-300 hover:shadow-sm group h-24"
-                  // ^ Added h-24 for fixed height
-                  >
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                      <m.icon size={20} className="text-slate-600 group-hover:text-indigo-600 transition-colors" />
-                    </div>
-                    <span className="text-xs font-medium text-slate-700 group-hover:text-indigo-700 text-center leading-tight px-1">{m.label}</span>
-                  </button>
-                </TutorialTooltip>
+            <div className="flex-1 overflow-y-auto">
+              {blockCategories.map(category => (
+                <div key={category.id} className="mb-6">
+                  <div className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                    <category.icon size={12} />
+                    {category.name}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 p-3">
+                    {category.blocks.map(block => (
+                      <TutorialTooltip key={block.id} content={block.label} position="top">
+                        <button
+                          onClick={() => addBlock(block.id)}
+                          className="w-full flex flex-col items-center justify-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all hover:border-indigo-300 hover:shadow-sm group h-20"
+                        >
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                            <block.icon size={16} className="text-slate-600 group-hover:text-indigo-600 transition-colors" />
+                          </div>
+                          <span className="text-xs font-medium text-slate-700 group-hover:text-indigo-700 text-center leading-tight px-1">
+                            {block.label}
+                          </span>
+                        </button>
+                      </TutorialTooltip>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -2481,41 +2901,55 @@ export default function App() {
       </div>
 
       {/* Mobile Sidebar */}
-      <MobileSidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)}>
-        <div className="p-4">
-          <div className="grid grid-cols-3 gap-2">
-            {blockLibrary.map(m => (
-              <button
-                key={m.id}
-                onClick={() => addBlock(m.id)}
-                className="flex flex-col items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50"
-              >
-                <m.icon size={20} className="text-slate-600" />
-                <span className="text-xs font-medium">{m.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </MobileSidebar>
+      <MobileSidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Mobile Header */}
+        {/* Mobile Header */}
         {isMobile && (
           <div className="bg-white border-b p-4 flex justify-between items-center">
-            <button
-              onClick={() => setMobileSidebarOpen(true)}
-              className="p-2 rounded-lg border"
-            >
-              <Plus size={20} />
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMobileSidebarOpen(true)}
+                className="p-2 rounded-lg border hover:bg-slate-50"
+                title="Add Blocks"
+              >
+                <Plus size={20} />
+              </button>
+              <button
+                onClick={() => {
+                  setMobileSidebarOpen(true);
+                  // This will be handled by the mobile sidebar state
+                }}
+                className="p-2 rounded-lg border hover:bg-slate-50"
+                title="Theme Settings"
+              >
+                <Palette size={20} />
+              </button>
+            </div>
+
             <div className="font-bold text-slate-800">Gift Builder</div>
-            <button
-              onClick={() => setMode('gift')}
-              className="p-2 rounded-lg border"
-            >
-              <Eye size={20} />
-            </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setMobileSidebarOpen(true);
+                  // This will be handled by the mobile sidebar state
+                }}
+                className="p-2 rounded-lg border hover:bg-slate-50"
+                title="Tools"
+              >
+                <MoreHorizontal size={20} />
+              </button>
+              <button
+                onClick={() => setMode('gift')}
+                className="p-2 rounded-lg border hover:bg-slate-50"
+                title="Preview"
+              >
+                <Eye size={20} />
+              </button>
+            </div>
           </div>
         )}
 
