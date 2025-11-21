@@ -1808,7 +1808,7 @@ const SpacerBlock = ({ content, theme, isEditing, onUpdate, style }) => {
     <div className="w-full max-w-full overflow-hidden">
       {isEditing ? (
         // Editing Mode with Controls
-        <div className="w-full p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50">
+        <div className="w-full p-4 border-2 border-dashed rounded-lg bg-white/50">
           <div className="text-center space-y-3">
             <div className="flex items-center gap-2 justify-center text-blue-600">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
