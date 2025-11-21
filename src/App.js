@@ -1663,6 +1663,345 @@ const CouponBlock = ({ content, theme, isEditing, onUpdate }) => (
   </div>
 );
 
+const SpacerBlock = ({ content, theme, isEditing, onUpdate, style }) => {
+  // Default content if none exists
+  const defaultContent = {
+    height: 'medium', // small, medium, large, custom
+    customHeight: '50px',
+    showDivider: false,
+    dividerStyle: 'line', // line, dots, pattern, custom
+    dividerColor: theme?.primary || '#6b7280',
+    customPattern: '❤️',
+    patternSpacing: 'medium'
+  };
+
+  const config = { ...defaultContent, ...content };
+
+  // Height mappings
+  const heightMap = {
+    small: 'h-8',
+    medium: 'h-16', 
+    large: 'h-24',
+    custom: ''
+  };
+
+  const patternSpacingMap = {
+    tight: 'gap-2',
+    medium: 'gap-4',
+    wide: 'gap-8'
+  };
+
+  const getHeightClass = () => {
+    if (config.height === 'custom') {
+      return '';
+    }
+    return heightMap[config.height] || heightMap.medium;
+  };
+
+  const getHeightStyle = () => {
+    if (config.height === 'custom') {
+      return { height: config.customHeight };
+    }
+    return {};
+  };
+
+  // Visual indicator for editing mode
+  const getEditingIndicator = () => {
+    if (!isEditing) return null;
+
+    const heightDisplay = config.height === 'custom' 
+      ? config.customHeight 
+      : `${config.height} (${getHeightValue()}px)`;
+
+    return (
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+        <div className="bg-blue-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 3v18M3 12h18" />
+            </svg>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-medium">Spacer Block</span>
+            <span className="text-blue-100">
+              Height: {heightDisplay} {config.showDivider && '• With Divider'}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const getHeightValue = () => {
+    switch (config.height) {
+      case 'small': return 32;
+      case 'medium': return 64;
+      case 'large': return 96;
+      default: return 64;
+    }
+  };
+
+  const renderDivider = () => {
+    if (!config.showDivider) return null;
+
+    const baseClasses = "flex items-center justify-center w-full";
+    
+    switch (config.dividerStyle) {
+      case 'line':
+        return (
+          <div 
+            className={`${baseClasses} h-px`}
+            style={{ backgroundColor: config.dividerColor }}
+          />
+        );
+      
+      case 'dots':
+        return (
+          <div className={`${baseClasses} ${patternSpacingMap[config.patternSpacing]}`}>
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: config.dividerColor }}
+              />
+            ))}
+          </div>
+        );
+      
+      case 'pattern':
+        return (
+          <div className={`${baseClasses} ${patternSpacingMap[config.patternSpacing]} text-lg`}>
+            {[...Array(6)].map((_, i) => (
+              <span key={i} style={{ color: config.dividerColor }}>
+                {config.customPattern}
+              </span>
+            ))}
+          </div>
+        );
+      
+      case 'custom':
+        return (
+          <div className={`${baseClasses} text-sm font-medium`} style={{ color: config.dividerColor }}>
+            ••• {config.customPattern} •••
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  // Visual styling for editing mode
+  const getEditingStyles = () => {
+    if (!isEditing) return {};
+    
+    return {
+      minHeight: '20px',
+      outline: style.outline,
+      outlineOffset: '-1px',
+      backgroundColor: style.backgroundColor,
+      position: 'relative'
+    };
+  };
+
+  return (
+    <div className="w-full max-w-full overflow-hidden">
+      {isEditing ? (
+        // Editing Mode with Controls
+        <div className="w-full p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50">
+          <div className="text-center space-y-3">
+            <div className="flex items-center gap-2 justify-center text-blue-600">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 3v18M3 12h18" />
+              </svg>
+              <span className="text-sm font-medium">Spacer Block</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">Height</label>
+                <select
+                  value={config.height}
+                  onChange={(e) => onUpdate({ ...config, height: e.target.value })}
+                  className="w-full p-2 border rounded text-xs"
+                >
+                  <option value="small">Small (32px)</option>
+                  <option value="medium">Medium (64px)</option>
+                  <option value="large">Large (96px)</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              
+              {config.height === 'custom' && (
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Custom Height</label>
+                  <input
+                    type="text"
+                    value={config.customHeight}
+                    onChange={(e) => onUpdate({ ...config, customHeight: e.target.value })}
+                    className="w-full p-2 border rounded text-xs"
+                    placeholder="50px or 2rem"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 justify-center">
+              <input
+                type="checkbox"
+                id="showDivider"
+                checked={config.showDivider}
+                onChange={(e) => onUpdate({ ...config, showDivider: e.target.checked })}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="showDivider" className="text-sm text-slate-700">
+                Add Decorative Divider
+              </label>
+            </div>
+
+            {config.showDivider && (
+              <div className="space-y-3 border-t pt-3">
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Divider Style</label>
+                  <select
+                    value={config.dividerStyle}
+                    onChange={(e) => onUpdate({ ...config, dividerStyle: e.target.value })}
+                    className="w-full p-2 border rounded text-xs"
+                  >
+                    <option value="line">Line</option>
+                    <option value="dots">Dots</option>
+                    <option value="pattern">Pattern</option>
+                    <option value="custom">Custom Text</option>
+                  </select>
+                </div>
+
+                {(config.dividerStyle === 'pattern' || config.dividerStyle === 'custom') && (
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">
+                      {config.dividerStyle === 'pattern' ? 'Pattern Symbol' : 'Custom Text'}
+                    </label>
+                    <input
+                      type="text"
+                      value={config.customPattern}
+                      onChange={(e) => onUpdate({ ...config, customPattern: e.target.value })}
+                      className="w-full p-2 border rounded text-xs"
+                      placeholder={config.dividerStyle === 'pattern' ? '❤️' : '••• Custom •••'}
+                      maxLength={config.dividerStyle === 'pattern' ? 2 : 20}
+                    />
+                  </div>
+                )}
+
+                {(config.dividerStyle === 'dots' || config.dividerStyle === 'pattern') && (
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Spacing</label>
+                    <select
+                      value={config.patternSpacing}
+                      onChange={(e) => onUpdate({ ...config, patternSpacing: e.target.value })}
+                      className="w-full p-2 border rounded text-xs"
+                    >
+                      <option value="tight">Tight</option>
+                      <option value="medium">Medium</option>
+                      <option value="wide">Wide</option>
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Color</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={config.dividerColor}
+                      onChange={(e) => onUpdate({ ...config, dividerColor: e.target.value })}
+                      className="w-10 h-8 rounded border"
+                    />
+                    <input
+                      type="text"
+                      value={config.dividerColor}
+                      onChange={(e) => onUpdate({ ...config, dividerColor: e.target.value })}
+                      className="flex-1 p-2 border rounded text-xs"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Preview */}
+                <div className="pt-2">
+                  <div className="text-xs text-slate-500 mb-2">Live Preview:</div>
+                  <div className="h-12 flex items-center justify-center border border-blue-200 rounded bg-white p-2">
+                    {renderDivider()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Spacer Preview */}
+            <div className="pt-3 border-t">
+              <div className="text-xs text-slate-500 mb-2">Spacer Preview:</div>
+              <div 
+                className={`w-full ${getHeightClass()} relative border border-blue-200 rounded bg-white flex items-center justify-center`}
+                style={{
+                  ...getHeightStyle(),
+                  ...getEditingStyles()
+                }}
+              >
+                {getEditingIndicator()}
+                {config.showDivider && renderDivider()}
+                {!config.showDivider && (
+                  <div className="text-slate-400 text-xs">
+                    Empty Spacer
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        // View Mode - Actual Spacer
+        <div 
+          className={`w-full ${getHeightClass()} relative`}
+          style={{
+            ...getHeightStyle(),
+            ...style
+          }}
+        >
+          {renderDivider()}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Helper function to render the revealed content
+const renderRevealedContent = (config) => {
+  switch (config.revealType) {
+    case 'text':
+      return (
+        <p className="text-lg font-semibold text-slate-800 break-words">
+          {config.message}
+        </p>
+      );
+    case 'image':
+      return config.imageUrl ? (
+        <img 
+          src={config.imageUrl} 
+          alt="Revealed" 
+          className="max-w-full max-h-32 object-contain rounded"
+        />
+      ) : (
+        <p className="text-slate-500">No image set</p>
+      );
+    case 'emoji':
+      return (
+        <div className="text-6xl">
+          {config.message || "🎁"}
+        </div>
+      );
+    default:
+      return null;
+  }
+};
+
 const PollBlock = ({ content, theme, isEditing, onUpdate }) => {
   const [voted, setVoted] = useState(null);
   const [showAI, setShowAI] = useState(false);
@@ -2220,6 +2559,7 @@ export default function App() {
     spinwheel: SpinWheelBlock,
     drawing: DrawingCanvasBlock,
     dice: DiceRollerBlock,
+    spacer: SpacerBlock,
   };
 
   const renderBlock = (block, isEditing) => {
@@ -2259,6 +2599,7 @@ export default function App() {
         { id: 'hero', icon: Type, label: 'Heading' },
         { id: 'section', icon: Hash, label: 'Divider' },
         { id: 'note', icon: MessageCircle, label: 'Note' },
+        { id: 'spacer', icon: Minimize, label: 'Spacer' },
       ]
     },
     {
