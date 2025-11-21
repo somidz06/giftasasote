@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/giftasasote/static/css/main.dc4d6ff2.css",
+    "main.js": "/giftasasote/static/js/main.732c0d7b.js",
+    "index.html": "/giftasasote/index.html",
+    "main.dc4d6ff2.css.map": "/giftasasote/static/css/main.dc4d6ff2.css.map",
+    "main.732c0d7b.js.map": "/giftasasote/static/js/main.732c0d7b.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.dc4d6ff2.css",
+    "static/js/main.732c0d7b.js"
+  ]
+}
